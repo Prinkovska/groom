@@ -106,7 +106,8 @@ $$('[data-count]').forEach(el => countObs.observe(el));
   if (reduceMotion) return;
   let i = 0;
   $$('.hero__title .split').forEach(el => {
-    el.innerHTML = el.textContent.trim().split(/\s+/)
+    // ділимо лише за звичайними пробілами: нерозривні (&nbsp;) тримають прийменник разом зі словом
+    el.innerHTML = el.textContent.trim().split(/[ \t\n]+/)
       .map(w => `<span class="w" style="--i:${i++}">${w}</span>`).join(' ');
     if (el.nextElementSibling?.classList.contains('rotator')) i += 2;
   });
@@ -209,6 +210,44 @@ $$('.spotlight').forEach(card => card.addEventListener('mousemove', e => {
   card.style.setProperty('--mx', e.clientX - r.left + 'px');
   card.style.setProperty('--my', e.clientY - r.top + 'px');
 }));
+
+/* ---------- 3D-нахил карток послуг і майстрів за мишкою ---------- */
+if (finePointer && !reduceMotion) {
+  $$('.svc, .member').forEach(card => {
+    card.classList.add('tilt');
+    card.addEventListener('mouseenter', () => card.classList.add('is-tilting'));
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.setProperty('--ry', (x * 8).toFixed(2) + 'deg');
+      card.style.setProperty('--rx', (y * -6).toFixed(2) + 'deg');
+    });
+    card.addEventListener('mouseleave', () => {
+      card.classList.remove('is-tilting');
+      card.style.removeProperty('--rx');
+      card.style.removeProperty('--ry');
+    });
+  });
+}
+
+/* ---------- Відбиток лапки в місці кліку ---------- */
+if (finePointer && !reduceMotion) {
+  const pawSvg = '<ellipse cx="12" cy="16" rx="4.6" ry="3.8"/><circle cx="6" cy="10.5" r="2"/><circle cx="9.6" cy="6.6" r="2"/><circle cx="14.4" cy="6.6" r="2"/><circle cx="18" cy="10.5" r="2"/>';
+  addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('input, select, textarea, [data-ba], .gallery__track')) return;
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('class', 'paw-stamp');
+    s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = pawSvg;
+    s.style.left = e.clientX + 'px';
+    s.style.top = e.clientY + 'px';
+    s.style.setProperty('--r', Math.round(Math.random() * 50 - 25) + 'deg');
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 950);
+  });
+}
 
 /* ---------- Фільтр послуг ---------- */
 (function filter() {

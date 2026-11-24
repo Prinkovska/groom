@@ -25,7 +25,16 @@ html{scroll-behavior:smooth;scroll-padding-top:90px;-webkit-text-size-adjust:100
 body{margin:0;font-family:'Onest',system-ui,sans-serif;color:var(--ink);background:var(--white);font-size:17px;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
 }
 a,button,label,summary{cursor:pointer}
+/* курсор-лапка на весь сайт (лише миша); над посиланнями і кнопками лапка стає помаранчевою */
+@media (pointer:fine){
+  html{cursor:url(../img/cursor-paw.svg) 9 7,auto}
+  a,button,label,summary,select,[role="tab"],.gallery__item{cursor:url(../img/cursor-paw-hover.svg) 9 7,pointer}
+  input:not([type="radio"]):not([type="checkbox"]),textarea{cursor:text}
+}
 [data-ba]{cursor:ew-resize}
+/* без «висячих» слів в останньому рядку */
+h1,h2,h3{text-wrap:balance}
+p,li,blockquote,summary{text-wrap:pretty}
 img{max-width:100%;display:block}
 a{color:inherit;text-decoration:none}
 h1,h2,h3{margin:0;font-family:'Unbounded','Onest',sans-serif;font-weight:600;line-height:1.18;letter-spacing:-.02em}
@@ -44,7 +53,14 @@ section{padding:110px 0;position:relative}
 .head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:52px;flex-wrap:wrap}
 .head-row .head{margin-bottom:0}
 .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sage-d);margin-bottom:16px}
-.eyebrow::before{content:"";width:24px;height:2px;border-radius:2px;background:currentColor}
+.eyebrow::before{content:"";width:24px;height:2px;border-radius:2px;background:currentColor;transition:width .9s var(--ease) calc(var(--d,0s) + .2s)}
+.reveal:not(.is-in) .eyebrow::before,.reveal-scale:not(.is-in) .eyebrow::before{width:0}
+/* маркер під ключовими словами заголовків: «малюється» при появі блоку */
+.mark{--mark:rgba(111,159,139,.32);font-style:normal;padding:0 .06em;margin:0 -.06em;
+  background:linear-gradient(transparent 58%,var(--mark) 58%,var(--mark) 92%,transparent 92%) no-repeat 0 0/0% 100%;
+  transition:background-size 1.1s var(--ease) calc(var(--d,0s) + .45s);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.is-in .mark{background-size:100% 100%}
+.calc .mark,.contacts .mark,.booking .mark{--mark:rgba(246,197,159,.38)}
 .eyebrow--light{color:#CFE3DA}
 .actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:44px}
 
@@ -455,6 +471,15 @@ section{padding:110px 0;position:relative}
 .reveal{opacity:0;transform:translateY(34px);transition:opacity .9s var(--ease) var(--d,0s),transform .9s var(--ease) var(--d,0s)}
 .reveal-scale{opacity:0;transform:scale(.94);transition:opacity 1s var(--ease) var(--d,0s),transform 1s var(--ease) var(--d,0s)}
 .is-in.reveal,.is-in.reveal-scale{opacity:1;transform:none}
+/* фото в картках відкриваються «шторкою» знизу вгору */
+.svc__img img,.member__photo img{clip-path:inset(0 0 0 0);transition:transform .8s var(--ease),clip-path 1.1s var(--ease) calc(var(--d,0s) + .15s)}
+.svc:not(.is-in) .svc__img img,.member:not(.is-in) .member__photo img{clip-path:inset(100% 0 0 0);transform:scale(1.15)}
+/* 3D-нахил карток за мишкою (кути задає JS) */
+.tilt.is-in:hover{transform:perspective(900px) translateY(-8px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+.tilt.is-tilting{transition:transform .18s ease-out,opacity .9s var(--ease)}
+/* відбиток лапки там, де клікнули */
+.paw-stamp{position:fixed;z-index:200;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;fill:var(--sage);animation:stamp .9s var(--ease) forwards}
+@keyframes stamp{0%{opacity:0;transform:rotate(var(--r)) scale(1.8)}25%{opacity:.85;transform:rotate(var(--r)) scale(.9)}40%{transform:rotate(var(--r)) scale(1)}100%{opacity:0;transform:rotate(var(--r)) scale(1) translateY(-6px)}}
 
 /* ---------- Адаптив ---------- */
 @media (max-width:1320px){
