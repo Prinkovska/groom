@@ -78,7 +78,63 @@ const revealObs = new IntersectionObserver(entries => {
     revealObs.unobserve(e.target);
   });
 }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
-$$('.reveal, .reveal-scale, .step').forEach(el => revealObs.observe(el));
+/* ---------- Песик-талісман: малюємо SVG у [data-dog] ---------- */
+const DOG_HEAD = `<svg class="dog__head" viewBox="0 0 160 130">
+  <g class="dog__ear dog__ear--l"><path d="M44 58C34 40 30 18 36 6c10 4 28 20 36 36z" fill="#C9773A"/><path d="M46 50c-6-14-7-28-5-36 8 6 18 16 23 26z" fill="#F2B8A0"/></g>
+  <g class="dog__ear dog__ear--r"><path d="M116 58c10-18 14-40 8-52-10 4-28 20-36 36z" fill="#C9773A"/><path d="M114 50c6-14 7-28 5-36-8 6-18 16-23 26z" fill="#F2B8A0"/></g>
+  <path d="M42 100 36 130h88l-6-30z" fill="#D98C4A"/><path d="M62 112q18 12 36 0l6 18H56z" fill="#FFF6EC"/>
+  <ellipse cx="80" cy="76" rx="50" ry="44" fill="#D98C4A"/>
+  <path d="M80 40c-6 12-10 22-14 34q14-4 28 0c-4-12-8-22-14-34z" fill="#FFF6EC"/>
+  <ellipse cx="80" cy="96" rx="30" ry="22" fill="#FFF6EC"/>
+  <circle cx="50" cy="94" r="7" fill="#F29C8A" opacity=".45"/><circle cx="110" cy="94" r="7" fill="#F29C8A" opacity=".45"/>
+  <g class="dog__eyes">
+    <ellipse cx="60" cy="72" rx="8.5" ry="9.5" fill="#fff"/><ellipse cx="100" cy="72" rx="8.5" ry="9.5" fill="#fff"/>
+    <g class="dog__pupil" data-x="60" data-y="72" transform="translate(60 72)"><circle r="5.6" fill="#2B2522"/><circle cx="-1.8" cy="-2" r="1.7" fill="#fff"/></g>
+    <g class="dog__pupil" data-x="100" data-y="72" transform="translate(100 72)"><circle r="5.6" fill="#2B2522"/><circle cx="-1.8" cy="-2" r="1.7" fill="#fff"/></g>
+  </g>
+  <path class="dog__tongue" d="M73 103q7-2 14 0 1 13-7 14-8-1-7-14z" fill="#E8707A"/>
+  <path d="M71 86q9-5 18 0-3 8-9 9-6-1-9-9z" fill="#2B2522"/>
+  <path d="M80 95v5m0 0q-7 8-14 2m14-2q7 8 14 2" stroke="#2B2522" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+</svg>`;
+const DOG_PAWS = `<svg class="dog__paws" viewBox="0 0 160 34">
+  <g fill="#FFF6EC" stroke="#C9773A" stroke-width="2.5"><ellipse cx="46" cy="18" rx="20" ry="13"/><ellipse cx="114" cy="18" rx="20" ry="13"/></g>
+  <path d="M38 23v-6m8 7v-7m8 6v-6M106 23v-6m8 7v-7m8 6v-6" stroke="#C9773A" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+$$('[data-dog]').forEach(el => {
+  const part = el.dataset.dog;
+  el.innerHTML = (part === 'paws' ? '' : DOG_HEAD) + (part === 'head' ? '' : DOG_PAWS);
+});
+
+/* Очі песиків стежать за курсором (або за пальцем на телефоні) */
+(function dogEyes() {
+  const pupils = $$('.dog__pupil');
+  if (!pupils.length || reduceMotion) return;
+  let mx = innerWidth / 2, my = innerHeight / 2, queued = false;
+  function update() {
+    queued = false;
+    pupils.forEach(p => {
+      const svg = p.ownerSVGElement;
+      const r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      const k = r.width / 160;
+      const bx = +p.dataset.x, by = +p.dataset.y;
+      const dx = mx - (r.left + bx * k), dy = my - (r.top + by * k);
+      const d = Math.hypot(dx, dy) || 1;
+      const m = Math.min(d / 60, 1) * 3.2;
+      p.setAttribute('transform', `translate(${(bx + dx / d * m).toFixed(2)} ${(by + dy / d * m * 1.1).toFixed(2)})`);
+    });
+  }
+  const onMove = e => {
+    mx = e.clientX; my = e.clientY;
+    if (!queued) { queued = true; requestAnimationFrame(update); }
+  };
+  addEventListener('pointermove', onMove, { passive: true });
+  addEventListener('pointerdown', onMove, { passive: true });
+  // радіє (висолоплює язика), коли наводять на помаранчеву кнопку
+  document.addEventListener('pointerover', e => document.body.classList.toggle('dog-happy', !!e.target.closest('.btn--accent, .hero__sticker')));
+})();
+
+$$('.reveal, .reveal-scale, .step, .booking__formwrap').forEach(el => revealObs.observe(el));
 
 /* ---------- Лічильники ---------- */
 const countObs = new IntersectionObserver(entries => {
