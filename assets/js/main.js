@@ -377,6 +377,8 @@ function calc() {
   calcSummary = { service: svc.name, from, to };
   animateNumber($('#calcFrom'), from);
   animateNumber($('#calcTo'), to);
+  const dog = $('.calc__dog');
+  if (dog && !reduceMotion) { dog.classList.remove('hop'); void dog.offsetWidth; dog.classList.add('hop'); }
 }
 calcForm.addEventListener('change', e => {
   if (e.target.name === 'pet') renderCalcServices();
