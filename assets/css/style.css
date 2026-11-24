@@ -508,11 +508,12 @@ section{padding:110px 0;position:relative}
 .booking__formwrap.is-in .peek-paws{transform:none}
 @media (max-width:900px){.booking__formwrap{margin-top:70px}}
 /* калькулятор: виглядає з-під нижнього краю лівої колонки, підстрибує при зміні ціни */
-.calc__dog{position:absolute;left:56px;bottom:0;width:190px;pointer-events:none;z-index:0}
+.calc__intro{display:flex;flex-direction:column}
+.calc__dog{width:200px;margin:auto auto -56px;padding-top:24px;overflow:hidden;pointer-events:none}
 .calc__dog .dog__head{transform:translateY(105%);transition:transform 1s var(--ease) .5s}
-.calc__box.is-in .calc__dog .dog__head{transform:translateY(22%)}
-.calc__dog.hop{animation:hop .5s var(--ease)}
-@keyframes hop{0%,100%{transform:none}40%{transform:translateY(-14px) rotate(-4deg)}70%{transform:translateY(-4px) rotate(2deg)}}
+.calc__box.is-in .calc__dog .dog__head{transform:none}
+.calc__dog.hop svg{animation:hop .5s var(--ease)}
+@keyframes hop{0%,100%{translate:0 0;rotate:0deg}40%{translate:0 -14px;rotate:-4deg}70%{translate:0 -4px;rotate:2deg}}
 .calc__intro,.calc__form{position:relative;z-index:1}
 @media (max-width:900px){.calc__dog{display:none}}
 @media (max-width:600px){.peek,.peek-paws{right:28px;width:110px}.peek{height:90px}.peek-paws{top:-11px}}
