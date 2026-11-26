@@ -614,6 +614,98 @@ function confetti() {
   })(start);
 }
 
+/* ---------- Песик-коргі між блоками ----------
+   Смуги .dog-lane стоять між секціями. Поки смуга проїжджає екран, песик перебігає її зліва направо:
+   ціль = прогрес прокрутки, песик доганяє її риссю (кадр спрайта залежить від пройденого шляху,
+   тож лапи рухаються в такт швидкості). На смузі data-mode="jump" посередині стрибає за м'ячиком
+   і далі біжить з м'ячиком у пасті; data-mode="carry" — одразу з м'ячиком. */
+(function dogLanes() {
+  const lanes = $$('.dog-lane');
+  if (!lanes.length || reduceMotion) return;
+  const RUN = { src: 'assets/img/dog/run.webp', n: 14, fw: 462, fh: 258,
+    nose: [[.831,.333],[.84,.357],[.855,.391],[.877,.422],[.894,.453],[.9,.465],[.896,.45],[.89,.426],[.879,.388],[.868,.353],[.857,.337],[.842,.322],[.829,.306],[.827,.31]] };
+  const JUMP = { src: 'assets/img/dog/jump.webp', n: 26, fw: 420, fh: 426, fps: 12 };
+  const BALL = '<svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#E2631F"/><path d="M3 9c6 3 14 3 20 0M3 17c6-3 14-3 20 0" fill="none" stroke="#F4D9B8" stroke-width="2.2"/><circle cx="9" cy="8" r="3" fill="#fff" opacity=".25"/></svg>';
+
+  const items = lanes.map(lane => {
+    const dog = document.createElement('div'); dog.className = 'dog-lane__dog';
+    dog.innerHTML = '<div class="dog-lane__flip"><i class="dog-lane__spr"></i><span class="dog-lane__ball">' + BALL + '</span></div>';
+    lane.appendChild(dog);
+    return { lane, dog, flip: dog.firstChild, spr: dog.querySelector('i'), ball: dog.querySelector('.dog-lane__ball'),
+      mode: lane.dataset.mode || 'run', x: null, dist: 0, dir: 1, state: 'run', jumpT: 0, on: false };
+  });
+
+  const H = () => innerWidth < 600 ? 78 : 112;            // висота песика, px
+  function sprite(it, S, f) {
+    const k = H() / (RUN.fh * .95), w = S.fw * k, h = S.fh * k;
+    const s = it.spr.style;
+    if (it.cur !== S.src) { s.backgroundImage = 'url(' + S.src + ')'; it.cur = S.src; }
+    s.width = w + 'px'; s.height = h + 'px';
+    s.backgroundSize = (S.n * w) + 'px ' + h + 'px';
+    s.backgroundPosition = (-f * w) + 'px 0';
+    return [w, h];
+  }
+
+  let raf = 0, last = 0;
+  function tick(now) {
+    raf = 0;
+    const dt = last ? Math.max(0, Math.min((now - last) / 1000, .05)) : .016; last = now;
+    let busy = false;
+    items.forEach(it => {
+      if (!it.on) return;
+      const r = it.lane.getBoundingClientRect(), W = r.width;
+      const runW = RUN.fw * H() / (RUN.fh * .95);
+      /* ціль: від -ширини песика (за лівим краєм) до правого краю, поки смуга йде від 92% до 30% висоти екрана */
+      const p = Math.max(0, Math.min(1, (innerHeight * .92 - r.top) / (innerHeight * .62)));
+      const target = -runW + p * (W + runW * 1.05);
+      if (it.x === null) it.x = target;
+      if (p < .02 && it.state !== 'run') { it.state = 'run'; }          // прокрутили назад до початку — граємо знову
+
+      if (it.state === 'jump') {
+        it.jumpT += dt;
+        const f = Math.floor(it.jumpT * JUMP.fps);
+        if (f >= JUMP.n) { it.state = 'carry'; }
+        else {
+          it.x += dt * 50;
+          const [w, h] = sprite(it, JUMP, f);
+          it.flip.style.transform = ''; it.ball.style.display = 'none';
+          it.dog.style.transform = `translate3d(${it.x}px,0,0)`;
+          busy = true; return;
+        }
+      }
+
+      const diff = target - it.x, maxV = 820 * dt;
+      const step = Math.abs(diff) < .5 ? diff : Math.sign(diff) * Math.min(Math.abs(diff) * .14 + 1.5, maxV);
+      it.x += step;
+      if (Math.abs(step) > .2) { it.dir = step > 0 ? 1 : -1; busy = true; }
+      it.dist += Math.abs(step);
+      if (it.mode === 'jump' && it.state === 'run' && it.dir > 0 && it.x + runW / 2 > W * .5) { it.state = 'jump'; it.jumpT = 0; busy = true; }
+
+      const moving = Math.abs(step) > .2;
+      const stride = runW * 1.15 / RUN.n;                           // шлях на один кадр рисі
+      const f = moving ? Math.floor(it.dist / stride) % RUN.n : 0;
+      const [w, h] = sprite(it, RUN, f);
+      const withBall = it.mode === 'carry' || it.state === 'carry';
+      it.ball.style.display = withBall ? 'block' : 'none';
+      if (withBall) { const b = 26 * H() / 125, [nx, ny] = RUN.nose[f];
+        Object.assign(it.ball.style, { width: b + 'px', height: b + 'px', left: (nx * w - b * .85) + 'px', top: (ny * h - b * .15) + 'px' }); }
+      it.flip.style.transform = it.dir < 0 ? 'scaleX(-1)' : '';
+      it.dog.style.transform = `translate3d(${it.x}px,0,0)`;
+    });
+    if (busy) raf = requestAnimationFrame(tick); else last = 0;
+  }
+  const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    const it = items.find(i => i.lane === e.target); it.on = e.isIntersecting;
+    if (it.on && !it.loaded) { it.loaded = true; [RUN.src, JUMP.src].forEach(s => { const im = new Image(); im.src = s; }); }
+    kick();
+  }), { rootMargin: '200px 0px' });
+  items.forEach(it => io.observe(it.lane));
+  if (/[?&]dogdebug\b/.test(location.search)) window.__dog = { items, tick };   // лише для перевірки
+  addEventListener('scroll', kick, { passive: true });
+  addEventListener('resize', kick);
+})();
+
 /* ---------- Рік у футері ---------- */
 $('#year').textContent = new Date().getFullYear();
 

@@ -507,6 +507,18 @@ section{padding:110px 0;position:relative}
 .booking__formwrap.is-in .peek .dog__head{transform:translateY(8%)}
 .booking__formwrap.is-in .peek-paws{transform:none}
 @media (max-width:900px){.booking__formwrap{margin-top:70px}}
+/* смуги, якими між блоками перебігає песик-коргі (JS: dogLanes) */
+.dog-lane{position:relative;height:128px;overflow:visible;pointer-events:none;z-index:3}
+.dog-lane::after{content:"";position:absolute;left:0;right:0;bottom:14px;height:1px;background:linear-gradient(90deg,transparent,rgba(47,94,78,.16) 15%,rgba(47,94,78,.16) 85%,transparent)}
+.dog-lane__dog{position:absolute;left:0;bottom:10px;will-change:transform}
+.dog-lane__flip{position:relative}
+.dog-lane__spr{display:block;background-repeat:no-repeat}
+.dog-lane__ball{position:absolute;display:none}
+.dog-lane__ball svg{display:block;width:100%;height:100%}
+.services + .dog-lane,.faq + .dog-lane{background:var(--cream)}
+section:has(+ .dog-lane){padding-bottom:36px}
+@media (max-width:600px){.dog-lane{height:96px}}
+@media (prefers-reduced-motion:reduce){.dog-lane{display:none}}
 /* калькулятор: виглядає з-під нижнього краю лівої колонки, підстрибує при зміні ціни */
 .calc__intro{display:flex;flex-direction:column}
 .calc__dog{width:200px;margin:auto auto -56px;padding-top:24px;overflow:hidden;pointer-events:none}
