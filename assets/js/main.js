@@ -614,96 +614,85 @@ function confetti() {
   })(start);
 }
 
-/* ---------- Песик-коргі між блоками ----------
-   Смуги .dog-lane стоять між секціями. Поки смуга проїжджає екран, песик перебігає її зліва направо:
-   ціль = прогрес прокрутки, песик доганяє її риссю (кадр спрайта залежить від пройденого шляху,
-   тож лапи рухаються в такт швидкості). На смузі data-mode="jump" посередині стрибає за м'ячиком
-   і далі біжить з м'ячиком у пасті; data-mode="carry" — одразу з м'ячиком. */
-(function dogLanes() {
-  const lanes = $$('.dog-lane');
-  if (!lanes.length || reduceMotion) return;
-  const RUN = { src: 'assets/img/dog/run.webp', n: 14, fw: 462, fh: 258,
-    nose: [[.831,.333],[.84,.357],[.855,.391],[.877,.422],[.894,.453],[.9,.465],[.896,.45],[.89,.426],[.879,.388],[.868,.353],[.857,.337],[.842,.322],[.829,.306],[.827,.31]] };
-  const JUMP = { src: 'assets/img/dog/jump.webp', n: 26, fw: 420, fh: 426, fps: 12 };
-  const BALL = '<svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#E2631F"/><path d="M3 9c6 3 14 3 20 0M3 17c6-3 14-3 20 0" fill="none" stroke="#F4D9B8" stroke-width="2.2"/><circle cx="9" cy="8" r="3" fill="#fff" opacity=".25"/></svg>';
+/* ---------- Песик-коргі, що мандрує сторінкою ----------
+   Точки зупинки стоять на межах секцій, по черзі праворуч і ліворуч. У точці песик сидить у своїй позі
+   (сидить, лежить, мокрий, пухнастий після грумінгу, дає лапу, спить). Поки гортаєте від однієї точки до
+   наступної, він перелітає по дузі, а кадри стрибка за м'ячиком перемикаються разом із прокруткою.
+   На телефоні й при «зменшеному русі» — без перельотів: песик просто з'являється в найближчій точці. */
+(function dogFly() {
+  const D = 'assets/img/dog/';
+  const POSES = {                     // висота на екрані, px
+    sit: { src: D + 'sit.webp', h: 150 }, lie: { src: D + 'lie.webp', h: 84 }, wet: { src: D + 'wet.webp', h: 138 },
+    fluffy: { src: D + 'fluffy.webp', h: 150 }, paw: { src: D + 'paw.webp', h: 152 }, sleep: { src: D + 'sleep.webp', h: 92 }
+  };
+  const JUMP = { src: D + 'jump.webp', n: 26, fw: 420, fh: 426, h: 206 };   // h — висота кадру на екрані
+  /* після якої секції точка, де по горизонталі (частка ширини), поза */
+  const SPOTS = [
+    ['#hero', .86, 'sit'], ['.features', .12, 'lie'], ['#calc', .88, 'sit'], ['#about', .1, 'wet'],
+    ['#results', .88, 'fluffy'], ['#reviews', .12, 'lie'], ['#faq', .86, 'paw'], ['#booking', .14, 'sleep']
+  ].map(([sel, x, pose]) => ({ el: $(sel), x, pose })).filter(s => s.el);
+  if (SPOTS.length < 2) return;
 
-  const items = lanes.map(lane => {
-    const dog = document.createElement('div'); dog.className = 'dog-lane__dog';
-    dog.innerHTML = '<div class="dog-lane__flip"><i class="dog-lane__spr"></i><span class="dog-lane__ball">' + BALL + '</span></div>';
-    lane.appendChild(dog);
-    return { lane, dog, flip: dog.firstChild, spr: dog.querySelector('i'), ball: dog.querySelector('.dog-lane__ball'),
-      mode: lane.dataset.mode || 'run', x: null, dist: 0, dir: 1, state: 'run', jumpT: 0, on: false };
-  });
+  const fly = document.createElement('div'); fly.className = 'dogfly'; fly.setAttribute('aria-hidden', 'true');
+  fly.innerHTML = '<img class="dogfly__pose" alt=""><i class="dogfly__jump"></i>';
+  document.body.appendChild(fly);
+  const img = fly.querySelector('img'), spr = fly.querySelector('i');
+  Object.values(POSES).forEach(p => { const im = new Image(); im.src = p.src; });   // наперед, щоб пози не блимали
+  const calm = reduceMotion || innerWidth < 900;
+  if (!calm) { const im = new Image(); im.src = JUMP.src; }
 
-  const H = () => innerWidth < 600 ? 78 : 112;            // висота песика, px
-  function sprite(it, S, f) {
-    const k = H() / (RUN.fh * .95), w = S.fw * k, h = S.fh * k;
-    const s = it.spr.style;
-    if (it.cur !== S.src) { s.backgroundImage = 'url(' + S.src + ')'; it.cur = S.src; }
-    s.width = w + 'px'; s.height = h + 'px';
-    s.backgroundSize = (S.n * w) + 'px ' + h + 'px';
-    s.backgroundPosition = (-f * w) + 'px 0';
-    return [w, h];
+  let pts = [], sCur = null, raf = 0, curPose = '', mode = '';
+  function measure() {
+    const W = document.documentElement.clientWidth;
+    pts = SPOTS.map(s => ({ x: s.x * W, y: s.el.getBoundingClientRect().bottom + scrollY + 6, pose: s.pose }));
   }
-
-  let raf = 0, last = 0;
-  function tick(now) {
+  const K = () => innerWidth < 900 ? .7 : 1;                                       // менший песик на телефоні
+  const clampX = (x, w) => Math.max(w / 2 + 8, Math.min(document.documentElement.clientWidth - w / 2 - 8, x));
+  function showPose(p, x, y, flip) {
+    const P = POSES[p], h = P.h * K();
+    if (curPose !== p) { img.src = P.src; curPose = p; }
+    if (mode !== 'pose') { img.style.display = 'block'; spr.style.display = 'none'; mode = 'pose'; }
+    img.style.height = h + 'px';
+    const w = img.naturalWidth ? img.naturalWidth * h / img.naturalHeight : h;
+    fly.style.transform = `translate3d(${clampX(x, w) - w / 2}px,${y - h}px,0)${flip ? ' scaleX(-1)' : ''}`;
+  }
+  function showJump(f, x, y, flip) {
+    if (mode !== 'jump') { img.style.display = 'none'; spr.style.display = 'block'; mode = 'jump'; curPose = ''; }
+    const h = JUMP.h * K(), w = JUMP.fw * h / JUMP.fh;
+    Object.assign(spr.style, { width: w + 'px', height: h + 'px', backgroundSize: `${JUMP.n * w}px ${h}px`, backgroundPosition: `${-f * w}px 0` });
+    fly.style.transform = `translate3d(${x - w / 2}px,${y - h}px,0)${flip ? ' scaleX(-1)' : ''}`;
+  }
+  /* стан за прокруткою s: песик сидить у точці j−1, доки точка j не з'явиться внизу екрана (95% висоти);
+     поки вона піднімається до 62% — перелітає до неї. Якщо попередня точка вже пішла за верх екрана,
+     песик «спускається» згори. Так він завжди на екрані під час польоту. */
+  function render(s) {
+    const vh = innerHeight; let j = 0;
+    for (let k = 1; k < pts.length; k++) if (s >= pts[k].y - vh * .95) j = k;
+    if (j === 0) return showPose(pts[0].pose, pts[0].x, pts[0].y, false);
+    const A = pts[j - 1], B = pts[j], s0 = B.y - vh * .95, s1 = B.y - vh * .62;
+    if (calm) { const S = s >= B.y - vh * .8 ? B : A; return showPose(S.pose, S.x, S.y, false); }
+    if (s >= s1) return showPose(B.pose, B.x, B.y, false);
+    const q = (s - s0) / (s1 - s0);
+    const fromTop = A.y < s0 + 160, y0 = fromTop ? s0 - 20 : A.y;                    // старт: з точки або з-за верху екрана
+    const e = q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;                   // плавний старт і приземлення
+    const lift = Math.sin(Math.PI * q) * (fromTop ? 40 : Math.min(160, Math.abs(B.x - A.x) * .2 + 50));
+    showJump(Math.min(JUMP.n - 1, Math.floor(q * JUMP.n)), A.x + (B.x - A.x) * e, y0 + (B.y - y0) * e - lift, B.x < A.x);
+  }
+  function tick() {
     raf = 0;
-    const dt = last ? Math.max(0, Math.min((now - last) / 1000, .05)) : .016; last = now;
-    let busy = false;
-    items.forEach(it => {
-      if (!it.on) return;
-      const r = it.lane.getBoundingClientRect(), W = r.width;
-      const runW = RUN.fw * H() / (RUN.fh * .95);
-      /* ціль: від -ширини песика (за лівим краєм) до правого краю, поки смуга йде від 92% до 30% висоти екрана */
-      const p = Math.max(0, Math.min(1, (innerHeight * .92 - r.top) / (innerHeight * .62)));
-      const target = -runW + p * (W + runW * 1.05);
-      if (it.x === null) it.x = target;
-      if (p < .02 && it.state !== 'run') { it.state = 'run'; }          // прокрутили назад до початку — граємо знову
-
-      if (it.state === 'jump') {
-        it.jumpT += dt;
-        const f = Math.floor(it.jumpT * JUMP.fps);
-        if (f >= JUMP.n) { it.state = 'carry'; }
-        else {
-          it.x += dt * 50;
-          const [w, h] = sprite(it, JUMP, f);
-          it.flip.style.transform = ''; it.ball.style.display = 'none';
-          it.dog.style.transform = `translate3d(${it.x}px,0,0)`;
-          busy = true; return;
-        }
-      }
-
-      const diff = target - it.x, maxV = 820 * dt;
-      const step = Math.abs(diff) < .5 ? diff : Math.sign(diff) * Math.min(Math.abs(diff) * .14 + 1.5, maxV);
-      it.x += step;
-      if (Math.abs(step) > .2) { it.dir = step > 0 ? 1 : -1; busy = true; }
-      it.dist += Math.abs(step);
-      if (it.mode === 'jump' && it.state === 'run' && it.dir > 0 && it.x + runW / 2 > W * .5) { it.state = 'jump'; it.jumpT = 0; busy = true; }
-
-      const moving = Math.abs(step) > .2;
-      const stride = runW * 1.15 / RUN.n;                           // шлях на один кадр рисі
-      const f = moving ? Math.floor(it.dist / stride) % RUN.n : 0;
-      const [w, h] = sprite(it, RUN, f);
-      const withBall = it.mode === 'carry' || it.state === 'carry';
-      it.ball.style.display = withBall ? 'block' : 'none';
-      if (withBall) { const b = 26 * H() / 125, [nx, ny] = RUN.nose[f];
-        Object.assign(it.ball.style, { width: b + 'px', height: b + 'px', left: (nx * w - b * .85) + 'px', top: (ny * h - b * .15) + 'px' }); }
-      it.flip.style.transform = it.dir < 0 ? 'scaleX(-1)' : '';
-      it.dog.style.transform = `translate3d(${it.x}px,0,0)`;
-    });
-    if (busy) raf = requestAnimationFrame(tick); else last = 0;
+    const s = scrollY;
+    if (sCur === null || calm || window.__dogNoSmooth) sCur = s; else sCur += (s - sCur) * .18;              // м'яко доганяє прокрутку
+    render(sCur);
+    if (!calm && Math.abs(s - sCur) > .5) raf = requestAnimationFrame(tick);
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
-  const io = new IntersectionObserver(es => es.forEach(e => {
-    const it = items.find(i => i.lane === e.target); it.on = e.isIntersecting;
-    if (it.on && !it.loaded) { it.loaded = true; [RUN.src, JUMP.src].forEach(s => { const im = new Image(); im.src = s; }); }
-    kick();
-  }), { rootMargin: '200px 0px' });
-  items.forEach(it => io.observe(it.lane));
-  if (/[?&]dogdebug\b/.test(location.search)) window.__dog = { items, tick };   // лише для перевірки
+  measure(); kick();
+  if (calm) fly.classList.add('dogfly--calm');
   addEventListener('scroll', kick, { passive: true });
-  addEventListener('resize', kick);
+  addEventListener('resize', () => { measure(); kick(); });
+  addEventListener('load', () => { measure(); kick(); });
+  setInterval(() => { const o = pts.map(p => p.y).join(); measure(); if (o !== pts.map(p => p.y).join()) kick(); }, 1500);   // висота сторінки могла змінитись
+  if (/[?&]dogdebug\b/.test(location.search)) window.__dog = { pts: () => pts, render, measure };
 })();
 
 /* ---------- Рік у футері ---------- */
