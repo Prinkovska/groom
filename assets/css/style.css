@@ -484,44 +484,10 @@ section{padding:110px 0;position:relative}
 /* 3D-нахил карток за мишкою (кути задає JS) */
 .tilt.is-in:hover{transform:perspective(900px) translateY(-8px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
 .tilt.is-tilting{transition:transform .18s ease-out,opacity .9s var(--ease)}
-/* ---------- Песик-талісман ---------- */
-.dog svg{display:block;width:100%;height:auto;overflow:visible}
-.dog__ear{transform-box:fill-box;transform-origin:50% 100%}
-.dog__ear--l{animation:earTwitch 6s infinite}
-.dog__ear--r{animation:earTwitch 7.4s 2s infinite}
-@keyframes earTwitch{0%,88%,100%{transform:none}91%{transform:rotate(-12deg)}94%{transform:rotate(5deg)}}
-.dog__eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.6s infinite}
-@keyframes blink{0%,94%,100%{transform:none}96.5%{transform:scaleY(.1)}}
-.dog__tongue{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);transition:transform .35s var(--ease)}
-.dog-happy .dog__tongue{transform:none}
-/* перший екран: визирає знизу ліворуч */
-.hero__dog{position:absolute;left:max(24px,calc((100vw - 1200px)/2 + 24px));bottom:0;width:150px;transform:translateY(105%);animation:dogUp 1s var(--ease) 1.8s forwards}
-.hero__dog .dog__paws{position:absolute;left:0;right:0;bottom:-2px}
-@keyframes dogUp{to{transform:translateY(14px)}}
-@media (max-width:1100px){.hero__dog{display:none}}
-/* форма запису: голова виринає з-за верхнього краю, лапки чіпляються за край */
-.booking__formwrap{position:relative}
-.peek{position:absolute;right:56px;bottom:100%;width:130px;height:106px;overflow:hidden;pointer-events:none}
-.peek .dog__head{transform:translateY(100%);transition:transform .9s var(--ease) .3s}
-.peek-paws{position:absolute;right:56px;top:-13px;width:130px;z-index:2;pointer-events:none;transform:scale(0);transition:transform .5s cubic-bezier(.3,1.6,.5,1) 1.05s}
-.booking__formwrap.is-in .peek .dog__head{transform:translateY(8%)}
-.booking__formwrap.is-in .peek-paws{transform:none}
-@media (max-width:900px){.booking__formwrap{margin-top:70px}}
 /* песик-коргі, що мандрує сторінкою (JS: dogFly) — шар у координатах документа */
 .dogfly{position:absolute;left:0;top:0;z-index:30;pointer-events:none;will-change:transform;transform-origin:50% 100%}
 .dogfly__pose{display:block;width:auto;max-width:none}
 .dogfly__jump{display:none;background:url(../img/dog/jump.webp) no-repeat}
-/* калькулятор: виглядає з-під нижнього краю лівої колонки, підстрибує при зміні ціни */
-.calc__intro{display:flex;flex-direction:column}
-.calc__dog{width:200px;margin:auto auto -56px;padding-top:24px;overflow:hidden;pointer-events:none}
-.calc__dog .dog__head{transform:translateY(105%);transition:transform 1s var(--ease) .5s}
-.calc__box.is-in .calc__dog .dog__head{transform:none}
-.calc__dog.hop svg{animation:hop .5s var(--ease)}
-@keyframes hop{0%,100%{translate:0 0;rotate:0deg}40%{translate:0 -14px;rotate:-4deg}70%{translate:0 -4px;rotate:2deg}}
-.calc__intro,.calc__form{position:relative;z-index:1}
-@media (max-width:900px){.calc__dog{display:none}}
-@media (max-width:600px){.peek,.peek-paws{right:28px;width:110px}.peek{height:90px}.peek-paws{top:-11px}}
-
 /* відбиток лапки там, де клікнули */
 .paw-stamp{position:fixed;z-index:200;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;fill:var(--sage);animation:stamp .9s var(--ease) forwards}
 @keyframes stamp{0%{opacity:0;transform:rotate(var(--r)) scale(1.8)}25%{opacity:.85;transform:rotate(var(--r)) scale(.9)}40%{transform:rotate(var(--r)) scale(1)}100%{opacity:0;transform:rotate(var(--r)) scale(1) translateY(-6px)}}
@@ -618,5 +584,4 @@ section{padding:110px 0;position:relative}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   .reveal,.reveal-scale{opacity:1;transform:none}
-  .hero__dog{transform:translateY(14px)}
 }
