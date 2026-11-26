@@ -487,7 +487,7 @@ section{padding:110px 0;position:relative}
 /* песик-коргі, що мандрує сторінкою (JS: dogFly) — шар у координатах документа */
 .dogfly{position:absolute;left:0;top:0;z-index:30;pointer-events:none;will-change:transform;transform-origin:50% 100%}
 .dogfly__pose{display:block;width:auto;max-width:none}
-.dogfly__jump{display:none;background:url(../img/dog/jump.webp) no-repeat}
+.dogfly__spr{display:none;background-repeat:no-repeat}
 /* відбиток лапки там, де клікнули */
 .paw-stamp{position:fixed;z-index:200;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;fill:var(--sage);animation:stamp .9s var(--ease) forwards}
 @keyframes stamp{0%{opacity:0;transform:rotate(var(--r)) scale(1.8)}25%{opacity:.85;transform:rotate(var(--r)) scale(.9)}40%{transform:rotate(var(--r)) scale(1)}100%{opacity:0;transform:rotate(var(--r)) scale(1) translateY(-6px)}}

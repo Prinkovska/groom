@@ -557,84 +557,110 @@ function confetti() {
 }
 
 /* ---------- Песик-коргі, що мандрує сторінкою ----------
-   Точки зупинки стоять на межах секцій, по черзі праворуч і ліворуч. У точці песик сидить у своїй позі
-   (сидить, лежить, мокрий, пухнастий після грумінгу, дає лапу, спить). Поки гортаєте від однієї точки до
-   наступної, він перелітає по дузі, а кадри стрибка за м'ячиком перемикаються разом із прокруткою.
-   На телефоні й при «зменшеному русі» — без перельотів: песик просто з'являється в найближчій точці. */
+   Точки зупинки стоять між блоками (на першому екрані — ліворуч усередині). У точці песик сидить у своїй позі.
+   Щойно точка піднімається до верхньої частини екрана, песик відштовхується і «спускається» разом із прокруткою
+   до наступної точки: кадри стрибка за м'ячиком перемикаються в такт коліщатку, а в довгому польоті він
+   ширяє (кадри польоту туди-назад). На телефоні й при «зменшеному русі» — без перельотів. */
 (function dogFly() {
   const D = 'assets/img/dog/';
-  const POSES = {                     // висота на екрані, px
+  const POSES = {                     // h — висота на екрані, px
     sit: { src: D + 'sit.webp', h: 150 }, lie: { src: D + 'lie.webp', h: 84 }, wet: { src: D + 'wet.webp', h: 138 },
-    fluffy: { src: D + 'fluffy.webp', h: 150 }, paw: { src: D + 'paw.webp', h: 152 }, sleep: { src: D + 'sleep.webp', h: 92 }
+    fluffy: { src: D + 'fluffy.webp', h: 150 }, paw: { src: D + 'paw.webp', h: 152 }, sleep: { src: D + 'sleep.webp', h: 92 },
+    alive: { spr: { src: D + 'sit-anim.webp', n: 16, fw: 305, fh: 409, fps: 5 }, h: 250 }   // живий: дихає, хитає головою
   };
-  const JUMP = { src: D + 'jump.webp', n: 26, fw: 420, fh: 426, h: 206 };   // h — висота кадру на екрані
-  /* після якої секції точка, де по горизонталі (частка ширини), поза */
+  const JUMP = { src: D + 'jump.webp', n: 26, fw: 420, fh: 426, h: 206 };
+  /* [елемент, по горизонталі (частка ширини), поза, масштаб, віддзеркалити, зсув по вертикалі, коли стрибати (частка висоти екрана)] */
   const SPOTS = [
-    ['#hero', .86, 'sit'], ['.features', .12, 'lie'], ['#calc', .88, 'sit'], ['#about', .1, 'wet'],
-    ['#results', .88, 'fluffy'], ['#reviews', .12, 'lie'], ['#faq', .86, 'paw'], ['#booking', .14, 'sleep']
-  ].map(([sel, x, pose]) => ({ el: $(sel), x, pose })).filter(s => s.el);
+    ['.hero__frame', .1, 'alive', 1, false, -26, .9],
+    ['.features', .12, 'lie', 1.5], ['#calc', .87, 'sit', 1.35, true], ['#about', .1, 'wet'],
+    ['#results', .88, 'fluffy'], ['#reviews', .12, 'lie', 1.3], ['#faq', .86, 'paw'], ['#booking', .14, 'sleep', 1.2]
+  ].map(([sel, x, pose, k = 1, flip = false, dy = 6, hold = .4]) => ({ el: $(sel), x, pose, k, flip, dy, hold })).filter(s => s.el);
   if (SPOTS.length < 2) return;
 
   const fly = document.createElement('div'); fly.className = 'dogfly'; fly.setAttribute('aria-hidden', 'true');
-  fly.innerHTML = '<img class="dogfly__pose" alt=""><i class="dogfly__jump"></i>';
+  fly.innerHTML = '<img class="dogfly__pose" alt=""><i class="dogfly__spr"></i>';
   document.body.appendChild(fly);
   const img = fly.querySelector('img'), spr = fly.querySelector('i');
-  Object.values(POSES).forEach(p => { const im = new Image(); im.src = p.src; });   // наперед, щоб пози не блимали
   const calm = reduceMotion || innerWidth < 900;
-  if (!calm) { const im = new Image(); im.src = JUMP.src; }
+  [...Object.values(POSES).map(p => p.src || p.spr.src), ...(calm ? [] : [JUMP.src])].forEach(s => { const im = new Image(); im.src = s; });
 
-  let pts = [], sCur = null, raf = 0, curPose = '', mode = '';
+  let pts = [], sCur = null, raf = 0, curImg = '', mode = '', animOn = false;
   function measure() {
     const W = document.documentElement.clientWidth;
-    pts = SPOTS.map(s => ({ x: s.x * W, y: s.el.getBoundingClientRect().bottom + scrollY + 6, pose: s.pose }));
+    pts = SPOTS.map(s => ({ ...s, x: s.x * W, y: s.el.getBoundingClientRect().bottom + scrollY + s.dy }));
   }
-  const K = () => innerWidth < 900 ? .7 : 1;                                       // менший песик на телефоні
+  const K = () => innerWidth < 900 ? .7 : 1;                                        // менший песик на телефоні
   const clampX = (x, w) => Math.max(w / 2 + 8, Math.min(document.documentElement.clientWidth - w / 2 - 8, x));
-  function showPose(p, x, y, flip) {
-    const P = POSES[p], h = P.h * K();
-    if (curPose !== p) { img.src = P.src; curPose = p; }
-    if (mode !== 'pose') { img.style.display = 'block'; spr.style.display = 'none'; mode = 'pose'; }
+  const place = (x, y, w, h, flip) => { fly.style.transform = `translate3d(${clampX(x, w) - w / 2}px,${y - h}px,0)${flip ? ' scaleX(-1)' : ''}`; };
+  function showSprite(S, f, h, x, y, flip) {
+    if (mode !== 'spr') { img.style.display = 'none'; spr.style.display = 'block'; mode = 'spr'; }
+    const w = S.fw * h / S.fh;
+    if (spr.dataset.src !== S.src) { spr.style.backgroundImage = `url(${S.src})`; spr.dataset.src = S.src; }
+    Object.assign(spr.style, { width: w + 'px', height: h + 'px', backgroundSize: `${S.n * w}px ${h}px`, backgroundPosition: `${-f * w}px 0` });
+    place(x, y, w, h, flip);
+  }
+  function showPose(P, now) {
+    const pose = POSES[P.pose], h = pose.h * P.k * K();
+    if (pose.spr) {                                                                    // живий песик: кадри туди-назад
+      const S = pose.spr, t = reduceMotion ? 0 : Math.floor(now / 1000 * S.fps) % (2 * S.n - 2);
+      animOn = !reduceMotion;
+      return showSprite(S, t < S.n ? t : 2 * S.n - 2 - t, h, P.x, P.y, P.flip);
+    }
+    if (mode !== 'img') { img.style.display = 'block'; spr.style.display = 'none'; mode = 'img'; }
+    if (curImg !== pose.src) { img.src = pose.src; curImg = pose.src; }
     img.style.height = h + 'px';
-    const w = img.naturalWidth ? img.naturalWidth * h / img.naturalHeight : h;
-    fly.style.transform = `translate3d(${clampX(x, w) - w / 2}px,${y - h}px,0)${flip ? ' scaleX(-1)' : ''}`;
+    place(P.x, P.y, img.naturalWidth ? img.naturalWidth * h / img.naturalHeight : h, h, P.flip);
   }
-  function showJump(f, x, y, flip) {
-    if (mode !== 'jump') { img.style.display = 'none'; spr.style.display = 'block'; mode = 'jump'; curPose = ''; }
-    const h = JUMP.h * K(), w = JUMP.fw * h / JUMP.fh;
-    Object.assign(spr.style, { width: w + 'px', height: h + 'px', backgroundSize: `${JUMP.n * w}px ${h}px`, backgroundPosition: `${-f * w}px 0` });
-    fly.style.transform = `translate3d(${x - w / 2}px,${y - h}px,0)${flip ? ' scaleX(-1)' : ''}`;
+  /* межі польоту від точки i до i+1 у пікселях прокрутки */
+  const vh = () => innerHeight;
+  const sStart = i => pts[i].y - vh() * pts[i].hold;
+  const sEnd = i => Math.max(pts[i + 1].y - vh() * .68, sStart(i) + 220);
+  function render(s, now) {
+    animOn = false;
+    if (calm) {                                                                        // без перельотів: найближча точка
+      const a = s + vh() * .6; let b = pts[0];
+      pts.forEach(p => { if (Math.abs(p.y - a) < Math.abs(b.y - a)) b = p; });
+      return showPose(b, now);
+    }
+    if (s < sStart(0)) return showPose(pts[0], now);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const s0 = sStart(i), s1 = sEnd(i);
+      if (s < s0) return showPose(pts[i], now);
+      if (s <= s1) {
+        const A = pts[i], B = pts[i + 1], Dp = s1 - s0, d = s - s0, q = d / Dp;
+        const e = q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;
+        const T = Math.min(240, Dp * .3);                                              // скільки прокрутки на відштовхування / приземлення
+        /* кадри: 0–12 відштовхування і ловить м'ячик; 13–18 політ (туди-назад, поки довго летить); 19–25 приземлення */
+        let f;
+        if (d < T) f = Math.floor(d / T * 13);
+        else if (Dp - d < T) f = 19 + Math.min(6, Math.floor((1 - (Dp - d) / T) * 7));
+        else { const k = Math.floor((d - T) / 30) % 10; f = 13 + (k < 6 ? k : 10 - k); }
+        const yA = A.y - s0, yB = B.y - s1;                                            // де точки на екрані на старті й фініші
+        const lift = Math.sin(Math.PI * q) * Math.min(140, Math.abs(B.x - A.x) * .15 + 40);
+        return showSprite(JUMP, f, JUMP.h * K(), A.x + (B.x - A.x) * e, s + yA + (yB - yA) * e - lift, B.x < A.x);
+      }
+    }
+    return showPose(pts[pts.length - 1], now);
   }
-  /* стан за прокруткою s: песик сидить у точці j−1, доки точка j не з'явиться внизу екрана (95% висоти);
-     поки вона піднімається до 62% — перелітає до неї. Якщо попередня точка вже пішла за верх екрана,
-     песик «спускається» згори. Так він завжди на екрані під час польоту. */
-  function render(s) {
-    const vh = innerHeight; let j = 0;
-    for (let k = 1; k < pts.length; k++) if (s >= pts[k].y - vh * .95) j = k;
-    if (j === 0) return showPose(pts[0].pose, pts[0].x, pts[0].y, false);
-    const A = pts[j - 1], B = pts[j], s0 = B.y - vh * .95, s1 = B.y - vh * .62;
-    if (calm) { const S = s >= B.y - vh * .8 ? B : A; return showPose(S.pose, S.x, S.y, false); }
-    if (s >= s1) return showPose(B.pose, B.x, B.y, false);
-    const q = (s - s0) / (s1 - s0);
-    const fromTop = A.y < s0 + 160, y0 = fromTop ? s0 - 20 : A.y;                    // старт: з точки або з-за верху екрана
-    const e = q < .5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;                   // плавний старт і приземлення
-    const lift = Math.sin(Math.PI * q) * (fromTop ? 40 : Math.min(160, Math.abs(B.x - A.x) * .2 + 50));
-    showJump(Math.min(JUMP.n - 1, Math.floor(q * JUMP.n)), A.x + (B.x - A.x) * e, y0 + (B.y - y0) * e - lift, B.x < A.x);
-  }
-  function tick() {
+  let lastAnim = 0;
+  function tick(now) {
     raf = 0;
     const s = scrollY;
-    if (sCur === null || calm || window.__dogNoSmooth) sCur = s; else sCur += (s - sCur) * .18;              // м'яко доганяє прокрутку
-    render(sCur);
-    if (!calm && Math.abs(s - sCur) > .5) raf = requestAnimationFrame(tick);
+    if (sCur === null || calm || window.__dogNoSmooth) sCur = s; else sCur += (s - sCur) * .2;   // м'яко доганяє прокрутку
+    render(sCur, now);
+    const moving = !calm && Math.abs(s - sCur) > .5;
+    if (moving) raf = requestAnimationFrame(tick);
+    else if (animOn && fly.getBoundingClientRect().bottom > 0) {                          // живий песик на екрані — дихає
+      raf = requestAnimationFrame(t => { if (t - lastAnim > 90) { lastAnim = t; tick(t); } else { raf = 0; kick(); } });
+    }
   }
   const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
   measure(); kick();
-  if (calm) fly.classList.add('dogfly--calm');
   addEventListener('scroll', kick, { passive: true });
   addEventListener('resize', () => { measure(); kick(); });
   addEventListener('load', () => { measure(); kick(); });
   setInterval(() => { const o = pts.map(p => p.y).join(); measure(); if (o !== pts.map(p => p.y).join()) kick(); }, 1500);   // висота сторінки могла змінитись
-  if (/[?&]dogdebug\b/.test(location.search)) window.__dog = { pts: () => pts, render, measure };
+  if (/[?&]dogdebug\b/.test(location.search)) window.__dog = { pts: () => pts, render, measure, sStart, sEnd };
 })();
 
 /* ---------- Рік у футері ---------- */
